@@ -545,6 +545,10 @@ struct IMGUI_API ImDrawListSharedData
     ImVec2          ArcFastVtx[12 * IM_DRAWLIST_ARCFAST_TESSELLATION_MULTIPLIER];  // FIXME: Bake rounded corners fill/borders in atlas
     ImU8            CircleSegmentCounts[64];    // Precomputed segment count for given radius (array index + 1) before we calculate it dynamically (to avoid calculation overhead)
 
+    // FIXME-ROUNDSHAPES: WIP + need to remove CircleVtx12 before PR
+    ImVector<ImVec4>* TexUvRoundCornerFilled;   // UV of filled round corner quad in the atlas
+    ImVector<ImVec4>* TexUvRoundCornerStroked;  // UV of stroked round corner quad in the atlas
+
     ImDrawListSharedData();
     void SetCircleSegmentMaxError(float max_error);
 };

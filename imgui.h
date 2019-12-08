@@ -2228,7 +2228,7 @@ enum ImFontAtlasFlags_
     ImFontAtlasFlags_None                   = 0,
     ImFontAtlasFlags_NoPowerOfTwoHeight     = 1 << 0,   // Don't round the height to next power of two
     ImFontAtlasFlags_NoMouseCursors         = 1 << 1,   // Don't build software mouse cursors into the atlas
-    ImFontAtlasFlags_NoTexturedRoundCorners = 1 << 2    // Don't use baked textures for round corners
+    ImFontAtlasFlags_NoTexturedRoundCorners = 1 << 2    // Don't build textures for round corners into the atlas
 };
 
 // Load and rasterize multiple TTF/OTF fonts into a same texture. The font atlas will build a single texture holding:

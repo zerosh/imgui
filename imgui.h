@@ -2320,7 +2320,6 @@ struct ImFontAtlas
     ImVector<ImFontAtlasCustomRect> CustomRects;    // Rectangles for packing custom texture data into the atlas.
     ImVector<ImFontConfig>      ConfigData;         // Internal data
     int                         CustomRectIds[1];   // Identifiers of custom texture rectangle used by ImFontAtlas/ImDrawList
-    int                         AALineMaxWidth;     // Maximum line width to build anti-aliased textures for
     ImVector<int>               AALineRectIds;      // Custom texture rectangle IDs for anti-aliased lines
     ImVector<ImVec4>            TexUvAALines;       // UVs for anti-aliased line textures
 

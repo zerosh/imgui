@@ -1438,9 +1438,9 @@ struct ImGuiStyle
     ImVec2      DisplayWindowPadding;       // Window position are clamped to be visible within the display area by at least this amount. Only applies to regular windows.
     ImVec2      DisplaySafeAreaPadding;     // If you cannot see the edges of your screen (e.g. on a TV) increase the safe area padding. Apply to popups/tooltips as well regular windows. NB: Prefer configuring your TV sets correctly!
     float       MouseCursorScale;           // Scale software rendered mouse cursor (when io.MouseDrawCursor is enabled). May be removed later.
-    bool        AntiAliasedLines;           // Enable anti-aliasing on lines/borders. Disable if you are really tight on CPU/GPU.
-    bool        AntiAliasedLinesUseTexData; // Draw anti-aliased lines using textures where possible.
-    bool        AntiAliasedFill;            // Enable anti-aliasing on filled shapes (rounded rectangles, circles, etc.)
+    bool        AntiAliasedLines;           // Enable anti-aliased lines/borders. Disable if you are really tight on CPU/GPU.
+    bool        AntiAliasedLinesUseTex;     // Enable anti-aliased lines/borders using textures where possible. Requires back-end to render with bilinear filtering.
+    bool        AntiAliasedFill;            // Enable anti-aliased filled shapes (rounded rectangles, circles, etc.).
     float       CurveTessellationTol;       // Tessellation tolerance when using PathBezierCurveTo() without a specific number of segments. Decrease for highly tessellated curves (higher quality, more polygons), increase to reduce quality.
     float       CircleSegmentMaxError;      // Maximum error (in pixels) allowed when using AddCircle()/AddCircleFilled() or drawing rounded corner rectangles with no explicit segment count specified. Decrease for higher quality but more geometry.
     ImVec4      Colors[ImGuiCol_COUNT];
@@ -1897,6 +1897,11 @@ struct ImColor
 // Hold a series of drawing commands. The user provides a renderer for ImDrawData which essentially contains an array of ImDrawList.
 //-----------------------------------------------------------------------------
 
+// The maximum line width to bake anti-aliased textures for. Build atlas with ImFontAtlasFlags_NoAALines to disable baking.
+#ifndef IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX
+#define IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX      (63)
+#endif
+
 // ImDrawCallback: Draw callbacks for advanced uses [configurable type: override in imconfig.h]
 // NB: You most likely do NOT need to use draw callbacks just to create your own widget or customized UI rendering,
 // you can poke into the draw list for that! Draw callback may be useful for example to:
@@ -1997,11 +2002,11 @@ enum ImDrawCornerFlags_
 
 enum ImDrawListFlags_
 {
-    ImDrawListFlags_None                        = 0,
-    ImDrawListFlags_AntiAliasedLines            = 1 << 0,  // Lines are anti-aliased (*2 the number of triangles for 1.0f wide line or lines thin enough to be drawn using textures, otherwise *3 the number of triangles)
-    ImDrawListFlags_AntiAliasedFill             = 1 << 1,  // Filled shapes have anti-aliased edges (*2 the number of vertices)
-    ImDrawListFlags_AllowVtxOffset              = 1 << 2,  // Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags_RendererHasVtxOffset' is enabled.
-    ImDrawListFlags_AntiAliasedLinesUseTexData  = 1 << 3   // Should anti-aliased lines be drawn using textures where possible?
+    ImDrawListFlags_None                    = 0,
+    ImDrawListFlags_AntiAliasedLines        = 1 << 0,  // Lines are anti-aliased (*2 the number of triangles for 1.0f wide line or lines thin enough to be drawn using textures, otherwise *3 the number of triangles)
+    ImDrawListFlags_AntiAliasedFill         = 1 << 1,  // Filled shapes have anti-aliased edges (*2 the number of vertices)
+    ImDrawListFlags_AntiAliasedLinesUseTex  = 1 << 2,  // Should anti-aliased lines be drawn using textures where possible?
+    ImDrawListFlags_AllowVtxOffset          = 1 << 3   // Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags_RendererHasVtxOffset' is enabled.
 };
 
 // Draw command list
@@ -2219,8 +2224,8 @@ enum ImFontAtlasFlags_
 {
     ImFontAtlasFlags_None               = 0,
     ImFontAtlasFlags_NoPowerOfTwoHeight = 1 << 0,   // Don't round the height to next power of two
-    ImFontAtlasFlags_NoMouseCursors     = 1 << 1,   // Don't build software mouse cursors into the atlas
-    ImFontAtlasFlags_NoAALines          = 1 << 2    // Don't build anti-aliased line textures into the atlas
+    ImFontAtlasFlags_NoMouseCursors     = 1 << 1,   // Don't build software mouse cursors into the atlas (save a little texture memory)
+    ImFontAtlasFlags_NoAntiAliasedLines = 1 << 2    // Don't build anti-aliased line textures into the atlas (save a little texture memory). They will be rendered using polygons (a little bit more expensive)
 };
 
 // Load and rasterize multiple TTF/OTF fonts into a same texture. The font atlas will build a single texture holding:
@@ -2323,7 +2328,7 @@ struct ImFontAtlas
     ImVector<ImFontConfig>      ConfigData;         // Internal data
     int                         CustomRectIds[1];   // Identifiers of custom texture rectangle used by ImFontAtlas/ImDrawList
     int                         AALineRectId;       // Custom texture rectangle ID for anti-aliased lines
-    ImVector<ImVec4>            TexUvAALines;       // UVs for anti-aliased line textures
+    ImVec4                      TexUvAALines[IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX+1]; // UVs for anti-aliased line textures
 
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
     typedef ImFontAtlasCustomRect    CustomRect;         // OBSOLETED in 1.72+

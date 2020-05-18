@@ -1719,8 +1719,7 @@ ImFontAtlas::ImFontAtlas()
     TexWidth = TexHeight = 0;
     TexUvScale = ImVec2(0.0f, 0.0f);
     TexUvWhitePixel = ImVec2(0.0f, 0.0f);
-    for (int n = 0; n < IM_ARRAYSIZE(CustomRectIds); n++)
-        CustomRectIds[n] = -1;
+    PackIdMouseCursors = PackIdAALines = -1;
 }
 
 ImFontAtlas::~ImFontAtlas()
@@ -1748,8 +1747,7 @@ void    ImFontAtlas::ClearInputData()
         }
     ConfigData.clear();
     CustomRects.clear();
-    for (int n = 0; n < IM_ARRAYSIZE(CustomRectIds); n++)
-        CustomRectIds[n] = -1;
+    PackIdMouseCursors = PackIdAALines = -1;
 }
 
 void    ImFontAtlas::ClearTexData()
@@ -1989,9 +1987,9 @@ bool ImFontAtlas::GetMouseCursorTexData(ImGuiMouseCursor cursor_type, ImVec2* ou
     if (Flags & ImFontAtlasFlags_NoMouseCursors)
         return false;
 
-    IM_ASSERT(CustomRectIds[0] != -1);
-    ImFontAtlasCustomRect& r = CustomRects[CustomRectIds[0]];
-    ImVec2 pos = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][0] + ImVec2((float)r.X, (float)r.Y);
+    IM_ASSERT(PackIdMouseCursors != -1);
+    ImFontAtlasCustomRect* r = GetCustomRectByIndex(PackIdMouseCursors);
+    ImVec2 pos = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][0] + ImVec2((float)r->X, (float)r->Y);
     ImVec2 size = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][1];
     *out_size = size;
     *out_offset = FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[cursor_type][2];
@@ -2321,12 +2319,12 @@ bool    ImFontAtlasBuildWithStbTruetype(ImFontAtlas* atlas)
 
 static void ImFontAtlasBuildRegisterDefaultCustomRects(ImFontAtlas* atlas)
 {
-    if (atlas->CustomRectIds[0] >= 0)
+    if (atlas->PackIdMouseCursors >= 0)
         return;
     if (!(atlas->Flags & ImFontAtlasFlags_NoMouseCursors))
-        atlas->CustomRectIds[0] = atlas->AddCustomRectRegular(FONT_ATLAS_DEFAULT_TEX_DATA_W_HALF * 2 + 1, FONT_ATLAS_DEFAULT_TEX_DATA_H);
+        atlas->PackIdMouseCursors = atlas->AddCustomRectRegular(FONT_ATLAS_DEFAULT_TEX_DATA_W_HALF * 2 + 1, FONT_ATLAS_DEFAULT_TEX_DATA_H);
     else
-        atlas->CustomRectIds[0] = atlas->AddCustomRectRegular(2, 2);
+        atlas->PackIdMouseCursors = atlas->AddCustomRectRegular(2, 2);
 }
 
 void ImFontAtlasBuildSetupFont(ImFontAtlas* atlas, ImFont* font, ImFontConfig* font_config, float ascent, float descent)
@@ -2372,20 +2370,19 @@ void ImFontAtlasBuildPackCustomRects(ImFontAtlas* atlas, void* stbrp_context_opa
 
 static void ImFontAtlasBuildRenderDefaultTexData(ImFontAtlas* atlas)
 {
-    IM_ASSERT(atlas->CustomRectIds[0] >= 0);
     IM_ASSERT(atlas->TexPixelsAlpha8 != NULL);
-    ImFontAtlasCustomRect& r = atlas->CustomRects[atlas->CustomRectIds[0]];
-    IM_ASSERT(r.IsPacked());
+    ImFontAtlasCustomRect* r = atlas->GetCustomRectByIndex(atlas->PackIdMouseCursors);
+    IM_ASSERT(r->IsPacked());
 
     const int w = atlas->TexWidth;
     if (!(atlas->Flags & ImFontAtlasFlags_NoMouseCursors))
     {
         // Render/copy pixels
-        IM_ASSERT(r.Width == FONT_ATLAS_DEFAULT_TEX_DATA_W_HALF * 2 + 1 && r.Height == FONT_ATLAS_DEFAULT_TEX_DATA_H);
+        IM_ASSERT(r->Width == FONT_ATLAS_DEFAULT_TEX_DATA_W_HALF * 2 + 1 && r->Height == FONT_ATLAS_DEFAULT_TEX_DATA_H);
         for (int y = 0, n = 0; y < FONT_ATLAS_DEFAULT_TEX_DATA_H; y++)
             for (int x = 0; x < FONT_ATLAS_DEFAULT_TEX_DATA_W_HALF; x++, n++)
             {
-                const int offset0 = (int)(r.X + x) + (int)(r.Y + y) * w;
+                const int offset0 = (int)(r->X + x) + (int)(r->Y + y) * w;
                 const int offset1 = offset0 + FONT_ATLAS_DEFAULT_TEX_DATA_W_HALF + 1;
                 atlas->TexPixelsAlpha8[offset0] = FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS[n] == '.' ? 0xFF : 0x00;
                 atlas->TexPixelsAlpha8[offset1] = FONT_ATLAS_DEFAULT_TEX_DATA_PIXELS[n] == 'X' ? 0xFF : 0x00;
@@ -2393,11 +2390,11 @@ static void ImFontAtlasBuildRenderDefaultTexData(ImFontAtlas* atlas)
     }
     else
     {
-        IM_ASSERT(r.Width == 2 && r.Height == 2);
-        const int offset = (int)(r.X) + (int)(r.Y) * w;
+        IM_ASSERT(r->Width == 2 && r->Height == 2);
+        const int offset = (int)r->X + (int)r->Y * w;
         atlas->TexPixelsAlpha8[offset] = atlas->TexPixelsAlpha8[offset + 1] = atlas->TexPixelsAlpha8[offset + w] = atlas->TexPixelsAlpha8[offset + w + 1] = 0xFF;
     }
-    atlas->TexUvWhitePixel = ImVec2((r.X + 0.5f) * atlas->TexUvScale.x, (r.Y + 0.5f) * atlas->TexUvScale.y);
+    atlas->TexUvWhitePixel = ImVec2((r->X + 0.5f) * atlas->TexUvScale.x, (r->Y + 0.5f) * atlas->TexUvScale.y);
 }
 
 static void ImFontAtlasBuildRegisterAALineCustomRects(ImFontAtlas* atlas)
@@ -2406,7 +2403,7 @@ static void ImFontAtlasBuildRegisterAALineCustomRects(ImFontAtlas* atlas)
         return;
 
     // The +2 here is to give space for the end caps, whilst height +1 is to accommodate the fact we have a zero-width row
-    atlas->AALineRectId = atlas->AddCustomRectRegular(IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX + 2, IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX + 1);
+    atlas->PackIdAALines = atlas->AddCustomRectRegular(IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX + 2, IM_DRAWLIST_TEX_AA_LINES_WIDTH_MAX + 1);
 }
 
 static void ImFontAtlasBuildRenderAALinesTexData(ImFontAtlas* atlas)
@@ -2415,8 +2412,8 @@ static void ImFontAtlasBuildRenderAALinesTexData(ImFontAtlas* atlas)
     if (atlas->Flags & ImFontAtlasFlags_NoAntiAliasedLines)
         return;
 
-    ImFontAtlasCustomRect& r = atlas->CustomRects[atlas->AALineRectId];
-    IM_ASSERT(r.IsPacked());
+    ImFontAtlasCustomRect* r = atlas->GetCustomRectByIndex(atlas->PackIdAALines);
+    IM_ASSERT(r->IsPacked());
 
     // This generates a triangular shape in the texture, with the various line widths stacked on top of each other to allow interpolation between them
     const int w = atlas->TexWidth;
@@ -2425,15 +2422,15 @@ static void ImFontAtlasBuildRenderAALinesTexData(ImFontAtlas* atlas)
         // Each line consists of at least two empty pixels at the ends, with a line of solid pixels in the middle
         unsigned int y = n;
         unsigned int line_width = n;
-        unsigned int pad_left = (r.Width - line_width) / 2;
-        unsigned int pad_right = r.Width - (pad_left + line_width);
+        unsigned int pad_left = (r->Width - line_width) / 2;
+        unsigned int pad_right = r->Width - (pad_left + line_width);
 
         // Make sure we're inside the texture bounds before we start writing pixels
         IM_ASSERT_PARANOID(pad_left + line_width + pad_right == r.Width);
         IM_ASSERT_PARANOID(y < r.Height);
 
         // Write each slice
-        unsigned char* write_ptr = &atlas->TexPixelsAlpha8[r.X + ((r.Y + y) * w)];
+        unsigned char* write_ptr = &atlas->TexPixelsAlpha8[r->X + ((r->Y + y) * w)];
         for (unsigned int x = 0; x < pad_left; x++)
             *(write_ptr++) = 0;
         for (unsigned int x = 0; x < line_width; x++)
@@ -2442,7 +2439,7 @@ static void ImFontAtlasBuildRenderAALinesTexData(ImFontAtlas* atlas)
             *(write_ptr++) = 0;
 
         // Calculate UVs for this line
-        ImFontAtlasCustomRect line_rect = r;
+        ImFontAtlasCustomRect line_rect = *r;
         line_rect.X += (unsigned short)(pad_left - 1);
         line_rect.Y += (unsigned short)y;
         line_rect.Width = (unsigned short)(line_width + 2);

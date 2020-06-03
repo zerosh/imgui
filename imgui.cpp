@@ -936,7 +936,7 @@ ImGuiStyle::ImGuiStyle()
     MouseCursorScale        = 1.0f;             // Scale software rendered mouse cursor (when io.MouseDrawCursor is enabled). May be removed later.
     AntiAliasedLines        = true;             // Enable anti-aliasing on lines/borders. Disable if you are really short on CPU/GPU.
     AntiAliasedFill         = true;             // Enable anti-aliasing on filled shapes (rounded rectangles, circles, etc.)
-    TexturedRoundCorners    = true;             // Use textures instead of strokes to draw rounded corners/circles where possible.
+    RoundCornersUseTex      = true;             // Use textures instead of strokes to draw rounded corners/circles where possible.
     CurveTessellationTol    = 1.25f;            // Tessellation tolerance when using PathBezierCurveTo() without a specific number of segments. Decrease for highly tessellated curves (higher quality, more polygons), increase to reduce quality.
     CircleSegmentMaxError   = 1.60f;            // Maximum error (in pixels) allowed when using AddCircle()/AddCircleFilled() or drawing rounded corner rectangles with no explicit segment count specified. Decrease for higher quality but more geometry.
 
@@ -3693,8 +3693,8 @@ void ImGui::NewFrame()
         g.DrawListSharedData.InitialFlags |= ImDrawListFlags_AntiAliasedFill;
     if (g.IO.BackendFlags & ImGuiBackendFlags_RendererHasVtxOffset)
         g.DrawListSharedData.InitialFlags |= ImDrawListFlags_AllowVtxOffset;
-    if (g.Style.TexturedRoundCorners && (!(g.Font->ContainerAtlas->Flags & ImFontAtlasFlags_NoTexturedRoundCorners)))
-        g.DrawListSharedData.InitialFlags |= ImDrawListFlags_TexturedRoundCorners;
+    if (g.Style.RoundCornersUseTex && !(g.Font->ContainerAtlas->Flags & ImFontAtlasFlags_NoRoundCorners))
+        g.DrawListSharedData.InitialFlags |= ImDrawListFlags_RoundCornersUseTex;
 
     g.BackgroundDrawList._ResetForNewFrame();
     g.BackgroundDrawList.PushTextureID(g.IO.Fonts->TexID);
@@ -5003,14 +5003,13 @@ static const ImGuiResizeBorderDef resize_border_def[4] =
 // FIXME: Probably ok to move this to imgui_draw.cpp in 'Internal Render Helpers' section.
 static bool RenderResizeGripWithTex(ImDrawList* draw_list, const ImVec2& corner, unsigned int rad, unsigned int overall_grip_size, ImDrawCornerFlags rounding_corners_flag, ImU32 col)
 {
-    if (!(draw_list->Flags & ImDrawListFlags_TexturedRoundCorners)) // Disabled by the draw list flags
+    if (!(draw_list->Flags & ImDrawListFlags_RoundCornersUseTex)) // Disabled by the draw list flags
         return false;
 
     ImFontAtlas* atlas = draw_list->_Data->Font->ContainerAtlas;
-    IM_UNUSED(atlas);
     IM_ASSERT(atlas->TexID == draw_list->_TextureIdStack.back());   // Use high-level ImGui::PushFont() or low-level ImDrawList::PushTextureId() to change font.
     IM_ASSERT(ImIsPowerOfTwo(rounding_corners_flag));               // Only allow a single corner to be specified here.
-    IM_ASSERT_PARANOID(!(atlas->Flags & ImFontAtlasFlags_NoTexturedRoundCorners));
+    IM_ASSERT_PARANOID(!(atlas->Flags & ImFontAtlasFlags_NoRoundCorners));
 
     if (rad < 1 || rad > ImFontAtlasRoundCornersMaxSize)            // Radius 0 will cause issues with the UV lookup below
         return false;

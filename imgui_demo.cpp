@@ -225,8 +225,8 @@ static void TestTextureBasedRender()
 
     ImGui::Begin("tex_round_corners");
 
-    style.TexturedRoundCorners = io.KeyShift;
-    ImGui::Checkbox("style.TexturedRoundCorners (hold SHIFT to toggle)", &style.TexturedRoundCorners);
+    style.RoundCornersUseTex = io.KeyShift;
+    ImGui::Checkbox("style.RoundCornersUseTex (hold SHIFT to toggle)", &style.RoundCornersUseTex);
 
     static float radius = 16.0f; // ImFontAtlasRoundCornersMaxSize * 0.5f;
     static int segments = 20;
@@ -3986,7 +3986,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
             ImGui::Checkbox("Anti-aliased lines", &style.AntiAliasedLines);
             ImGui::SameLine(); HelpMarker("When disabling anti-aliasing lines, you'll probably want to disable borders in your style as well.");
             ImGui::Checkbox("Anti-aliased fill", &style.AntiAliasedFill);
-            ImGui::Checkbox("Rounded corner textures", &style.TexturedRoundCorners);
+            ImGui::Checkbox("Rounded corner textures", &style.RoundCornersUseTex);
             ImGui::PushItemWidth(100);
             ImGui::DragFloat("Curve Tessellation Tolerance", &style.CurveTessellationTol, 0.02f, 0.10f, 10.0f, "%.2f");
             if (style.CurveTessellationTol < 0.10f) style.CurveTessellationTol = 0.10f;

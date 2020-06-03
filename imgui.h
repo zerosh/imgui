@@ -1440,7 +1440,7 @@ struct ImGuiStyle
     float       MouseCursorScale;           // Scale software rendered mouse cursor (when io.MouseDrawCursor is enabled). May be removed later.
     bool        AntiAliasedLines;           // Enable anti-aliasing on lines/borders. Disable if you are really tight on CPU/GPU.
     bool        AntiAliasedFill;            // Enable anti-aliasing on filled shapes (rounded rectangles, circles, etc.)
-    bool        TexturedRoundCorners;       // Use textures instead of strokes to draw rounded corners/circles where possible.
+    bool        RoundCornersUseTex;         // Use textures instead of strokes to draw rounded corners/circles where possible.
     float       CurveTessellationTol;       // Tessellation tolerance when using PathBezierCurveTo() without a specific number of segments. Decrease for highly tessellated curves (higher quality, more polygons), increase to reduce quality.
     float       CircleSegmentMaxError;      // Maximum error (in pixels) allowed when using AddCircle()/AddCircleFilled() or drawing rounded corner rectangles with no explicit segment count specified. Decrease for higher quality but more geometry.
     ImVec4      Colors[ImGuiCol_COUNT];
@@ -1995,11 +1995,11 @@ enum ImDrawCornerFlags_
 
 enum ImDrawListFlags_
 {
-    ImDrawListFlags_None                   = 0,
-    ImDrawListFlags_AntiAliasedLines       = 1 << 0,  // Lines are anti-aliased (*2 the number of triangles for 1.0f wide line, otherwise *3 the number of triangles)
-    ImDrawListFlags_AntiAliasedFill        = 1 << 1,  // Filled shapes have anti-aliased edges (*2 the number of vertices)
-    ImDrawListFlags_AllowVtxOffset         = 1 << 2,  // Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags_RendererHasVtxOffset' is enabled.
-    ImDrawListFlags_TexturedRoundCorners   = 1 << 3   // Use textures to draw rounded rectangle corners and circles where possible
+    ImDrawListFlags_None                = 0,
+    ImDrawListFlags_AntiAliasedLines    = 1 << 0,  // Lines are anti-aliased (*2 the number of triangles for 1.0f wide line, otherwise *3 the number of triangles)
+    ImDrawListFlags_AntiAliasedFill     = 1 << 1,  // Filled shapes have anti-aliased edges (*2 the number of vertices)
+    ImDrawListFlags_AllowVtxOffset      = 1 << 2,  // Can emit 'VtxOffset > 0' to allow large meshes. Set when 'ImGuiBackendFlags_RendererHasVtxOffset' is enabled.
+    ImDrawListFlags_RoundCornersUseTex  = 1 << 3   // Use textures to draw rounded rectangle corners and circles where possible
 };
 
 // Draw command list
@@ -2228,7 +2228,7 @@ enum ImFontAtlasFlags_
     ImFontAtlasFlags_None                   = 0,
     ImFontAtlasFlags_NoPowerOfTwoHeight     = 1 << 0,   // Don't round the height to next power of two
     ImFontAtlasFlags_NoMouseCursors         = 1 << 1,   // Don't build software mouse cursors into the atlas
-    ImFontAtlasFlags_NoTexturedRoundCorners = 1 << 2    // Don't build textures for round corners into the atlas
+    ImFontAtlasFlags_NoRoundCorners         = 1 << 2    // Don't build round corners textures into the atlas
 };
 
 // Load and rasterize multiple TTF/OTF fonts into a same texture. The font atlas will build a single texture holding:

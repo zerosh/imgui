@@ -546,6 +546,7 @@ struct IMGUI_API ImDrawListSharedData
     ImU8            CircleSegmentCounts[64];    // Precomputed segment count for given radius (array index + 1) before we calculate it dynamically (to avoid calculation overhead)
 
     ImVector<ImFontRoundedCornerData>* TexRoundCornerData; // Data for texture-based rounded corners, indexed by radius
+    ImVector<ImFontRoundedCornerData>* TexSquareCornerData; // Data for texture-based square corners, indexed by radius
 
     ImDrawListSharedData();
     void SetCircleSegmentMaxError(float max_error);

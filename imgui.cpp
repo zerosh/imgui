@@ -6168,6 +6168,7 @@ void ImGui::SetCurrentFont(ImFont* font)
     ImFontAtlas* atlas = g.Font->ContainerAtlas;
     g.DrawListSharedData.TexUvWhitePixel = atlas->TexUvWhitePixel;
     g.DrawListSharedData.TexRoundCornerData = &atlas->TexRoundCornerData;
+    g.DrawListSharedData.TexSquareCornerData = &atlas->TexSquareCornerData;
     g.DrawListSharedData.Font = g.Font;
     g.DrawListSharedData.FontSize = g.FontSize;
 }

@@ -2332,6 +2332,7 @@ struct ImFontAtlas
     int                         CustomRectIds[1];   // Identifiers of custom texture rectangle used by ImFontAtlas/ImDrawList
 
     ImVector<ImFontRoundedCornerData> TexRoundCornerData; // Data for texture-based round corners indexed by radius/size (from 1 to ImFontAtlasRoundCornersMaxSize) and stroke width (from 1 to ImFontAtlasRoundCornersMaxStrokeWidth), with index = stroke_width_index + (radius_index * ImFontAtlasRoundCornersMaxStrokeWidth).
+    ImVector<ImFontRoundedCornerData> TexSquareCornerData; // The same as TexRoundCornerData, but with square corners instead of rounded ones
 
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
     typedef ImFontAtlasCustomRect    CustomRect;         // OBSOLETED in 1.72+

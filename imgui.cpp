@@ -6186,7 +6186,7 @@ void ImGui::SetCurrentFont(ImFont* font)
     g.DrawListSharedData.TexUvWhitePixel = atlas->TexUvWhitePixel;
     g.DrawListSharedData.Font = g.Font;
     g.DrawListSharedData.FontSize = g.FontSize;
-    g.DrawListSharedData.ShadowRectId = atlas->ShadowRectId;
+    g.DrawListSharedData.ShadowRectIds = &atlas->ShadowRectIds[0];
     g.DrawListSharedData.ShadowRectUvs = &atlas->ShadowRectUvs[0];
 }
 

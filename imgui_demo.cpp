@@ -78,6 +78,18 @@ Index of this file:
 #else
 #include <stdint.h>         // intptr_t
 #endif
+#if !defined(alloca)
+#if defined(__GLIBC__) || defined(__sun) || defined(__APPLE__) || defined(__NEWLIB__)
+#include <alloca.h>     // alloca (glibc uses <alloca.h>. Note that Cygwin may have _WIN32 defined, so the order matters here)
+#elif defined(_WIN32)
+#include <malloc.h>     // alloca
+#if !defined(alloca)
+#define alloca _alloca  // for clang with MS Codegen
+#endif
+#else
+#include <stdlib.h>     // alloca
+#endif
+#endif
 
 // Visual Studio warnings
 #ifdef _MSC_VER
@@ -254,6 +266,231 @@ void ImGui::ShowDemoWindow(bool* p_open)
     if (show_app_window_titles)       ShowExampleAppWindowTitles(&show_app_window_titles);
     if (show_app_custom_rendering)    ShowExampleAppCustomRendering(&show_app_custom_rendering);
 
+    // Hacky shadow test
+
+    {
+        ImGui::Begin("Shadow test");
+
+        static ImVec2 shadow_offset(0.0f, 0.0f);
+        static float shadow_thickness = 32.0f;
+        static ImVec4 col(1.0f, 0.0f, 0.0f, 1.0f);
+        static ImVec4 shadow_col(0.0f, 0.0f, 0.0f, 1.0f);
+        static int segments = 32;
+        static bool fill = false;
+        static bool draw_shapes = true;
+        static bool wireframe = false;
+        static bool shadow = true;
+        static bool aa = false;
+        static int poly_seed = 1256;// 1234;
+
+        ImGui::SliderFloat2("Offset", (float*)&shadow_offset, -32.0f, 32.0f);
+        ImGui::SliderFloat("Thickness", &shadow_thickness, 0.0f, 32.0f);
+        ImGui::SliderInt("Segments", &segments, 3, 64);
+        ImGui::ColorEdit4("Colour", (float*)&col);
+        ImGui::ColorEdit4("Shadow colour", (float*)&shadow_col);
+        ImGui::InputInt("Poly seed", &poly_seed);
+        ImGui::Checkbox("Shapes", &draw_shapes);
+        ImGui::SameLine();
+        ImGui::Checkbox("Wireframe shapes", &wireframe);
+        ImGui::SameLine();
+        ImGui::Checkbox("Shadow", &shadow);
+        ImGui::SameLine();
+        ImGui::Checkbox("Fill shadow", &fill);
+        ImGui::SameLine();
+        ImGui::Checkbox("AA", &aa);
+
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+        ImDrawListFlags old_flags = draw_list->Flags;
+
+        if (aa)
+            draw_list->Flags |= ~ImDrawListFlags_AntiAliasedFill;
+        else
+            draw_list->Flags &= ~ImDrawListFlags_AntiAliasedFill;
+
+        // White background
+        draw_list->AddRectFilled(ImVec2(pos.x, pos.y), ImVec2(pos.x + 10000.0f, pos.y + 128.0f), IM_COL32(255, 255, 255, 255));
+
+        // Draw circle
+        if (shadow)
+        {
+            if (fill)
+                draw_list->AddShadowCircleFilled(ImVec2(pos.x + 128.0f, pos.y + 64.0f), 40.0f, shadow_thickness, shadow_offset, ImGui::GetColorU32(shadow_col), segments);
+            else
+                draw_list->AddShadowCircle(ImVec2(pos.x + 128.0f, pos.y + 64.0f), 40.0f, shadow_thickness, shadow_offset, ImGui::GetColorU32(shadow_col), segments);
+        }
+
+        if (draw_shapes)
+        {
+            if (wireframe)
+                draw_list->AddCircle(ImVec2(pos.x + 128.0f, pos.y + 64.0f), 40.0f, ImGui::GetColorU32(col), segments);
+            else
+                draw_list->AddCircleFilled(ImVec2(pos.x + 128.0f, pos.y + 64.0f), 40.0f, ImGui::GetColorU32(col), segments);
+        }
+
+        // Draw convex shape
+
+        // Generate a random convex shape (based on algorithm from http://cglab.ca/~sander/misc/ConvexGeneration/convex.html)
+        srand(poly_seed);
+
+        int max_poly_points = (rand() % 16) + 3;
+
+        // Generate two lists of numbers
+        float* x_points = (float*)alloca(max_poly_points * sizeof(float));
+        float* y_points = (float*)alloca(max_poly_points * sizeof(float));
+
+        for (int i = 0; i < max_poly_points; i++)
+        {
+            x_points[i] = (float)rand() / (float)RAND_MAX;
+            y_points[i] = (float)rand() / (float)RAND_MAX;
+        }
+
+        // Sort
+        qsort(x_points, max_poly_points, sizeof(float), [](const void* a, const void* b) { if (*(float*)a < *(float*)b) return -1; else if (*(float*)a > *(float*)b) return 1; else return 0; });
+        qsort(y_points, max_poly_points, sizeof(float), [](const void* a, const void* b) { if (*(float*)a < *(float*)b) return -1; else if (*(float*)a > *(float*)b) return 1; else return 0; });
+
+        // Get the extremities
+        float min_x = x_points[0];
+        float max_x = x_points[max_poly_points - 1];
+        float min_y = y_points[0];
+        float max_y = y_points[max_poly_points - 1];
+
+        // Split into pairs of chains, one for each "side" of the shape
+
+        float* x_chain = (float*)alloca(max_poly_points * sizeof(float));
+        float* y_chain = (float*)alloca(max_poly_points * sizeof(float));
+
+        float x_chain_current_a = min_x;
+        float x_chain_current_b = min_x;
+        float y_chain_current_a = min_y;
+        float y_chain_current_b = min_y;
+
+        for (int i = 1; i < (max_poly_points - 1); i++)
+        {
+            if ((rand() % 100) < 50)
+            {
+                x_chain[i - 1] = x_points[i] - x_chain_current_a;
+                x_chain_current_a = x_points[i];
+                y_chain[i - 1] = y_points[i] - y_chain_current_a;
+                y_chain_current_a = y_points[i];
+            }
+            else
+            {
+                x_chain[i - 1] = x_chain_current_b - x_points[i];
+                x_chain_current_b = x_points[i];
+                y_chain[i - 1] = y_chain_current_b - y_points[i];
+                y_chain_current_b = y_points[i];
+            }
+        }
+
+        x_chain[max_poly_points - 2] = max_x - x_chain_current_a;
+        x_chain[max_poly_points - 1] = x_chain_current_b - max_x;
+        y_chain[max_poly_points - 2] = max_y - y_chain_current_a;
+        y_chain[max_poly_points - 1] = y_chain_current_b - max_y;
+
+        // Build shuffle list
+        int* shuffle_list = (int*)alloca(max_poly_points * sizeof(int));
+
+        for (int i = 0; i < max_poly_points; i++)
+        {
+            shuffle_list[i] = i;
+        }
+
+        for (int i = 0; i < max_poly_points * 2; i++)
+        {
+            int index_a = rand() % max_poly_points;
+            int index_b = rand() % max_poly_points;
+            int temp = shuffle_list[index_a];
+            shuffle_list[index_a] = shuffle_list[index_b];
+            shuffle_list[index_b] = temp;
+        }
+
+        // Generate random vectors from the X/Y chains
+        ImVec2* poly_points = (ImVec2*)alloca(max_poly_points * sizeof(ImVec2));
+
+        for (int i = 0; i < max_poly_points; i++)
+        {
+            poly_points[i] = ImVec2(x_chain[i], y_chain[shuffle_list[i]]);
+        }
+
+        // Sort by angle of vector
+        qsort(poly_points, max_poly_points, sizeof(ImVec2), [](const void* a, const void* b)
+            {
+                float angle_a = atan2f(((ImVec2*)a)->y, ((ImVec2*)a)->x);
+                float angle_b = atan2f(((ImVec2*)b)->y, ((ImVec2*)b)->x);
+                if (angle_a < angle_b)
+                    return -1;
+                else if (angle_a > angle_b)
+                    return 1;
+                else
+                    return 0;
+            });
+
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
+        // Convert into absolute co-ordinates
+        ImVec2 current_pos(0.0f, 0.0f);
+        ImVec2 center_pos(0.0f, 0.0f);
+        ImVec2 min_pos(FLT_MAX, FLT_MAX);
+        ImVec2 max_pos(FLT_MIN, FLT_MIN);
+        for (int i = 0; i < max_poly_points; i++)
+        {
+            ImVec2 new_pos(current_pos.x + poly_points[i].x, current_pos.y + poly_points[i].y);
+            poly_points[i] = current_pos;
+            center_pos = ImVec2(center_pos.x + current_pos.x, center_pos.y + current_pos.y);
+            min_pos.x = MIN(min_pos.x, current_pos.x);
+            min_pos.y = MIN(min_pos.y, current_pos.y);
+            max_pos.x = MAX(max_pos.x, current_pos.x);
+            max_pos.y = MAX(max_pos.y, current_pos.y);
+            current_pos = new_pos;
+        }
+
+        // Re-scale and center
+        center_pos = ImVec2(center_pos.x / (float)max_poly_points, center_pos.y / (float)max_poly_points);
+
+        ImVec2 size = ImVec2(max_pos.x - min_pos.x, max_pos.y - min_pos.y);
+
+        const ImVec2 shape_center(pos.x + 256.0f, pos.y + 64.0f);
+        const float shape_size = 64.0f;
+
+        float scale = shape_size / MAX(size.x, size.y);
+
+        for (int i = 0; i < max_poly_points; i++)
+        {
+            poly_points[i].x = shape_center.x + ((poly_points[i].x - center_pos.x) * scale);
+            poly_points[i].y = shape_center.y + ((poly_points[i].y - center_pos.y) * scale);
+        }
+
+#undef MIN
+#undef MAX
+
+        if (shadow)
+        {
+            if (fill)
+                draw_list->AddShadowConvexPolyFilled(poly_points, max_poly_points, shadow_thickness, shadow_offset, ImGui::GetColorU32(shadow_col));
+            else
+                draw_list->AddShadowConvexPoly(poly_points, max_poly_points, shadow_thickness, shadow_offset, ImGui::GetColorU32(shadow_col));
+        }
+
+        if (draw_shapes)
+        {
+            if (wireframe)
+                draw_list->AddPolyline(poly_points, max_poly_points, ImGui::GetColorU32(col), true, 1.0f);
+            else
+                draw_list->AddConvexPolyFilled(poly_points, max_poly_points, ImGui::GetColorU32(col));
+        }
+
+        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + 160.0f));
+
+        ImGui::ImageButton(ImGui::GetIO().Fonts->TexID, ImVec2((float)ImGui::GetIO().Fonts->TexWidth, (float)ImGui::GetIO().Fonts->TexHeight));
+
+        draw_list->Flags = old_flags;
+
+        ImGui::End();
+    }
     // Dear ImGui Apps (accessible from the "Tools" menu)
     static bool show_app_metrics = false;
     static bool show_app_style_editor = false;

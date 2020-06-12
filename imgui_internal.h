@@ -546,8 +546,8 @@ struct IMGUI_API ImDrawListSharedData
     ImVec2          ArcFastVtx[12 * IM_DRAWLIST_ARCFAST_TESSELLATION_MULTIPLIER];  // FIXME: Bake rounded corners fill/borders in atlas
     ImU8            CircleSegmentCounts[64];    // Precomputed segment count for given radius (array index + 1) before we calculate it dynamically (to avoid calculation overhead)
 
-    int             ShadowRectId;               // ID of rect for shadow texture
-    const ImVec4*   ShadowRectUvs;              // UV coordinates for shadow texture (9 entries)
+    int*            ShadowRectIds;              // IDs of rects for shadow texture (2 entries)
+    const ImVec4*   ShadowRectUvs;              // UV coordinates for shadow texture (10 entries)
 
     ImDrawListSharedData();
     void SetCircleSegmentMaxError(float max_error);

@@ -1884,15 +1884,15 @@ static void AddShadowConvexShapeEx(ImDrawList* draw_list, const ImVec2* points, 
     draw_list->PrimReserve(max_indices, max_vertices);
     ImDrawIdx* idx_write = draw_list->_IdxWritePtr;
     ImDrawVert* vtx_write = draw_list->_VtxWritePtr;
-    ImDrawIdx current_idx = (ImDrawIdx)draw_list->_VtxCurrentIdx;    
+    ImDrawIdx current_idx = (ImDrawIdx)draw_list->_VtxCurrentIdx;
 
-    ImVec2 previous_edge_start = points[0];
+    //ImVec2 previous_edge_start = points[0];
     ImVec2 edge_start = points[0];
     ImVec2 prev_edge_normal = edge_normals[num_edges - 1];
 
     for (int edge_index = 0; edge_index < num_edges; edge_index++)
-    {        
-        ImVec2 edge_end = points[(edge_index + 1) % num_edges];
+    {
+        const ImVec2 edge_end = points[(edge_index + 1) % num_edges];
         ImVec2 edge_normal = edge_normals[edge_index];
 
         // Add corner section

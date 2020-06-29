@@ -230,6 +230,128 @@ static void ShowDemoWindowPopups();
 static void ShowDemoWindowColumns();
 static void ShowDemoWindowMisc();
 
+// Generate a random convex shape (based on algorithm from http://cglab.ca/~sander/misc/ConvexGeneration/convex.html)
+void GenerateRandomPolygon(size_t max_poly_points, ImVec2* poly_points, const ImVec2& shape_center, float shape_size)
+{
+    // Generate two lists of numbers
+    float* x_points = (float*)alloca(max_poly_points * sizeof(float));
+    float* y_points = (float*)alloca(max_poly_points * sizeof(float));
+
+    for (size_t i = 0; i < max_poly_points; i++)
+    {
+        x_points[i] = (float)rand() / (float)RAND_MAX;
+        y_points[i] = (float)rand() / (float)RAND_MAX;
+    }
+
+    // Sort
+    qsort(x_points, max_poly_points, sizeof(float), [](const void* a, const void* b) { if (*(const float*)a < *(const float*)b) return -1; else if (*(const float*)a > * (const float*)b) return 1; else return 0; });
+    qsort(y_points, max_poly_points, sizeof(float), [](const void* a, const void* b) { if (*(const float*)a < *(const float*)b) return -1; else if (*(const float*)a > * (const float*)b) return 1; else return 0; });
+
+    // Get the extremities
+    float min_x = x_points[0];
+    float max_x = x_points[max_poly_points - 1];
+    float min_y = y_points[0];
+    float max_y = y_points[max_poly_points - 1];
+
+    // Split into pairs of chains, one for each "side" of the shape
+
+    float* x_chain = (float*)alloca(max_poly_points * sizeof(float));
+    float* y_chain = (float*)alloca(max_poly_points * sizeof(float));
+
+    float x_chain_current_a = min_x;
+    float x_chain_current_b = min_x;
+    float y_chain_current_a = min_y;
+    float y_chain_current_b = min_y;
+
+    for (size_t i = 1; i < (max_poly_points - 1); i++)
+    {
+        if ((rand() % 100) < 50)
+        {
+            x_chain[i - 1] = x_points[i] - x_chain_current_a;
+            x_chain_current_a = x_points[i];
+            y_chain[i - 1] = y_points[i] - y_chain_current_a;
+            y_chain_current_a = y_points[i];
+        }
+        else
+        {
+            x_chain[i - 1] = x_chain_current_b - x_points[i];
+            x_chain_current_b = x_points[i];
+            y_chain[i - 1] = y_chain_current_b - y_points[i];
+            y_chain_current_b = y_points[i];
+        }
+    }
+
+    x_chain[max_poly_points - 2] = max_x - x_chain_current_a;
+    x_chain[max_poly_points - 1] = x_chain_current_b - max_x;
+    y_chain[max_poly_points - 2] = max_y - y_chain_current_a;
+    y_chain[max_poly_points - 1] = y_chain_current_b - max_y;
+
+    // Build shuffle list
+    int* shuffle_list = (int*)alloca(max_poly_points * sizeof(int));
+    for (size_t i = 0; i < max_poly_points; i++)
+    {
+        shuffle_list[i] = (int)i;
+    }
+
+    for (size_t i = 0; i < max_poly_points * 2; i++)
+    {
+        int index_a = rand() % (int)max_poly_points;
+        int index_b = rand() % (int)max_poly_points;
+        int temp = shuffle_list[index_a];
+        shuffle_list[index_a] = shuffle_list[index_b];
+        shuffle_list[index_b] = temp;
+    }
+
+    // Generate random vectors from the X/Y chains
+    for (size_t i = 0; i < max_poly_points; i++)
+    {
+        poly_points[i] = ImVec2(x_chain[i], y_chain[shuffle_list[i]]);
+    }
+
+    // Sort by angle of vector
+    qsort(poly_points, max_poly_points, sizeof(ImVec2), [](const void* a, const void* b)
+        {
+            float angle_a = atan2f(((const ImVec2*)a)->y, ((const ImVec2*)a)->x);
+            float angle_b = atan2f(((const ImVec2*)b)->y, ((const ImVec2*)b)->x);
+            if (angle_a < angle_b)
+                return -1;
+            else if (angle_a > angle_b)
+                return 1;
+            else
+                return 0;
+        });
+
+    // Convert into absolute co-ordinates
+    ImVec2 current_pos(0.0f, 0.0f);
+    ImVec2 center_pos(0.0f, 0.0f);
+    ImVec2 min_pos(FLT_MAX, FLT_MAX);
+    ImVec2 max_pos(FLT_MIN, FLT_MIN);
+    for (size_t i = 0; i < max_poly_points; i++)
+    {
+        ImVec2 new_pos(current_pos.x + poly_points[i].x, current_pos.y + poly_points[i].y);
+        poly_points[i] = current_pos;
+        center_pos = ImVec2(center_pos.x + current_pos.x, center_pos.y + current_pos.y);
+        min_pos.x = IM_MIN(min_pos.x, current_pos.x);
+        min_pos.y = IM_MIN(min_pos.y, current_pos.y);
+        max_pos.x = IM_MAX(max_pos.x, current_pos.x);
+        max_pos.y = IM_MAX(max_pos.y, current_pos.y);
+        current_pos = new_pos;
+    }
+
+    // Re-scale and center
+    center_pos = ImVec2(center_pos.x / (float)max_poly_points, center_pos.y / (float)max_poly_points);
+
+    ImVec2 size = ImVec2(max_pos.x - min_pos.x, max_pos.y - min_pos.y);
+
+    float scale = shape_size / IM_MAX(size.x, size.y);
+
+    for (size_t i = 0; i < max_poly_points; i++)
+    {
+        poly_points[i].x = shape_center.x + ((poly_points[i].x - center_pos.x) * scale);
+        poly_points[i].y = shape_center.y + ((poly_points[i].y - center_pos.y) * scale);
+    }
+}
+
 // Demonstrate most Dear ImGui features (this is big function!)
 // You may execute this function to experiment with the UI and understand what it does.
 // You may then search for keywords in the code when you are interested by a specific feature.
@@ -332,132 +454,13 @@ void ImGui::ShowDemoWindow(bool* p_open)
 
         // Draw convex shape
 
-        // Generate a random convex shape (based on algorithm from http://cglab.ca/~sander/misc/ConvexGeneration/convex.html)
-        srand((unsigned int)poly_seed);
-
-        size_t max_poly_points = (rand() % 16) + 3;
-
-        // Generate two lists of numbers
-        float* x_points = (float*)alloca(max_poly_points * sizeof(float));
-        float* y_points = (float*)alloca(max_poly_points * sizeof(float));
-
-        for (size_t i = 0; i < max_poly_points; i++)
-        {
-            x_points[i] = (float)rand() / (float)RAND_MAX;
-            y_points[i] = (float)rand() / (float)RAND_MAX;
-        }
-
-        // Sort
-        qsort(x_points, max_poly_points, sizeof(float), [](const void* a, const void* b) { if (*(const float*)a < *(const float*)b) return -1; else if (*(const float*)a > *(const float*)b) return 1; else return 0; });
-        qsort(y_points, max_poly_points, sizeof(float), [](const void* a, const void* b) { if (*(const float*)a < *(const float*)b) return -1; else if (*(const float*)a > *(const float*)b) return 1; else return 0; });
-
-        // Get the extremities
-        float min_x = x_points[0];
-        float max_x = x_points[max_poly_points - 1];
-        float min_y = y_points[0];
-        float max_y = y_points[max_poly_points - 1];
-
-        // Split into pairs of chains, one for each "side" of the shape
-
-        float* x_chain = (float*)alloca(max_poly_points * sizeof(float));
-        float* y_chain = (float*)alloca(max_poly_points * sizeof(float));
-
-        float x_chain_current_a = min_x;
-        float x_chain_current_b = min_x;
-        float y_chain_current_a = min_y;
-        float y_chain_current_b = min_y;
-
-        for (size_t i = 1; i < (max_poly_points - 1); i++)
-        {
-            if ((rand() % 100) < 50)
-            {
-                x_chain[i - 1] = x_points[i] - x_chain_current_a;
-                x_chain_current_a = x_points[i];
-                y_chain[i - 1] = y_points[i] - y_chain_current_a;
-                y_chain_current_a = y_points[i];
-            }
-            else
-            {
-                x_chain[i - 1] = x_chain_current_b - x_points[i];
-                x_chain_current_b = x_points[i];
-                y_chain[i - 1] = y_chain_current_b - y_points[i];
-                y_chain_current_b = y_points[i];
-            }
-        }
-
-        x_chain[max_poly_points - 2] = max_x - x_chain_current_a;
-        x_chain[max_poly_points - 1] = x_chain_current_b - max_x;
-        y_chain[max_poly_points - 2] = max_y - y_chain_current_a;
-        y_chain[max_poly_points - 1] = y_chain_current_b - max_y;
-
-        // Build shuffle list
-        int* shuffle_list = (int*)alloca(max_poly_points * sizeof(int));
-        for (size_t i = 0; i < max_poly_points; i++)
-        {
-            shuffle_list[i] = (int)i;
-        }
-
-        for (size_t i = 0; i < max_poly_points * 2; i++)
-        {
-            int index_a = rand() % (int)max_poly_points;
-            int index_b = rand() % (int)max_poly_points;
-            int temp = shuffle_list[index_a];
-            shuffle_list[index_a] = shuffle_list[index_b];
-            shuffle_list[index_b] = temp;
-        }
-
-        // Generate random vectors from the X/Y chains
-        ImVec2* poly_points = (ImVec2*)alloca(max_poly_points * sizeof(ImVec2));
-        for (size_t i = 0; i < max_poly_points; i++)
-        {
-            poly_points[i] = ImVec2(x_chain[i], y_chain[shuffle_list[i]]);
-        }
-
-        // Sort by angle of vector
-        qsort(poly_points, max_poly_points, sizeof(ImVec2), [](const void* a, const void* b)
-            {
-                float angle_a = atan2f(((const ImVec2*)a)->y, ((const ImVec2*)a)->x);
-                float angle_b = atan2f(((const ImVec2*)b)->y, ((const ImVec2*)b)->x);
-                if (angle_a < angle_b)
-                    return -1;
-                else if (angle_a > angle_b)
-                    return 1;
-                else
-                    return 0;
-            });
-
-        // Convert into absolute co-ordinates
-        ImVec2 current_pos(0.0f, 0.0f);
-        ImVec2 center_pos(0.0f, 0.0f);
-        ImVec2 min_pos(FLT_MAX, FLT_MAX);
-        ImVec2 max_pos(FLT_MIN, FLT_MIN);
-        for (size_t i = 0; i < max_poly_points; i++)
-        {
-            ImVec2 new_pos(current_pos.x + poly_points[i].x, current_pos.y + poly_points[i].y);
-            poly_points[i] = current_pos;
-            center_pos = ImVec2(center_pos.x + current_pos.x, center_pos.y + current_pos.y);
-            min_pos.x = IM_MIN(min_pos.x, current_pos.x);
-            min_pos.y = IM_MIN(min_pos.y, current_pos.y);
-            max_pos.x = IM_MAX(max_pos.x, current_pos.x);
-            max_pos.y = IM_MAX(max_pos.y, current_pos.y);
-            current_pos = new_pos;
-        }
-
-        // Re-scale and center
-        center_pos = ImVec2(center_pos.x / (float)max_poly_points, center_pos.y / (float)max_poly_points);
-
-        ImVec2 size = ImVec2(max_pos.x - min_pos.x, max_pos.y - min_pos.y);
-
+        // Generate a random convex shape
+        const size_t max_poly_points = (rand() % 16) + 3;
         const ImVec2 shape_center(pos.x + 256.0f, pos.y + 64.0f);
         const float shape_size = 64.0f;
-
-        float scale = shape_size / IM_MAX(size.x, size.y);
-
-        for (size_t i = 0; i < max_poly_points; i++)
-        {
-            poly_points[i].x = shape_center.x + ((poly_points[i].x - center_pos.x) * scale);
-            poly_points[i].y = shape_center.y + ((poly_points[i].y - center_pos.y) * scale);
-        }
+        ImVec2* poly_points = (ImVec2*)alloca(max_poly_points * sizeof(ImVec2));
+        srand((unsigned int)poly_seed);
+        GenerateRandomPolygon(max_poly_points, poly_points, shape_center, shape_size);
 
         if (shadow)
         {
